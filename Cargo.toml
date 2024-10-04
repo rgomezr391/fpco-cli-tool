@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cosmos = { git = "https://github.com/fpco/cosmos-rs" }
+clap = { version = "4.5.19", features = ["derive"] }
+regex = "1.11.0"
+anyhow = "1.0.89"
+tokio = "1.40.0"
+log = "0.4.22"
+env_logger = "0.11.5"
