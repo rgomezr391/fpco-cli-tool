@@ -6,13 +6,14 @@ extern crate cosmos;
 use cosmos::*;
 
 // Error handling
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Result};
 
 // Logging
 extern crate log;
 use log::info;
 
 use std::str::FromStr;
+use std::result::Result::Ok;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -43,18 +44,31 @@ async fn main() {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
-    // Parse arguments
+    match parse_args().await {
+        Ok(txn) => { 
+            let _ = main_execution(txn).await;
+        }
+        Err(e) => println!("Error: {}", e),
+    }
+
+}
+
+async fn parse_args() -> Result<Txn, anyhow::Error> {
     let args = Args::parse();
 
-    info!("Operation: {}", args.operation);
-    info!("Address: {}", args.address);
 
-    let re = Regex::new(r"(?<amount>\d*)(?<denom>\w*)").unwrap();
+    // (?<amount>\d+(?:\.*\d+)*)(?<denom>[a-zA-Z]*) -> This one admits float
+    let re = Regex::new(r"(?<amount>\d+)(?<denom>[a-zA-Z]*)").unwrap();
 
     let Some(caps) = re.captures(&args.operation) else {
-        info!("no match!");
-        return;
+        return Err(anyhow!("Invalid Args provided"));
     };
+
+    if caps.len() < 3 || caps.len() > 3{
+        return Err(anyhow!("Unexpected amount fo matches"));
+    }
+
+    info!("Recipient Address: {}", args.address);
     info!("Amount: {}", &caps["amount"]);
     info!("Denom: {}", &caps["denom"]);
 
@@ -62,16 +76,13 @@ async fn main() {
     let amount: u32 = caps["amount"].parse::<u32>().unwrap();
     let denom: String = caps["denom"].to_string();
     
-    let txn = Txn { address, amount, denom };
-
-    main_execution(txn).await;
+    Ok(Txn { address, amount, denom })
 }
 
 async fn connect_to_chain() -> Result<Cosmos, anyhow::Error> {
     // Connect to the blockchain
     let cosmos_handle = CosmosNetwork::OsmosisTestnet.connect().await?;
-    log::info!("Successfully connected to chain");
-
+    // log::info!("Successfully connected to chain");
     Ok(cosmos_handle)
 }
 
@@ -138,15 +149,18 @@ async fn main_execution(txn: Txn) -> Result<(), anyhow::Error> {
     let recipient_address = get_recipient_address(&txn).await?;
 
     // Before operation
-    get_sender_balance(&chain, &sender_info.address, &txn).await?;  // Get Sender balances and log them
-    get_recipient_balance(&chain, &recipient_address, &txn).await?;                   // Get Recipient balances and log them
+    info!("--- BALANCES BEFORE TRANSACTION ---");
+    get_sender_balance(&chain, &sender_info.address, &txn).await?;      // Get Sender balances and log them
+    get_recipient_balance(&chain, &recipient_address, &txn).await?;                     // Get Recipient balances and log them
 
     // Execute transaction
+    info!("--- EXECUTING TRANSACTION ---");
     execute_txn(&chain, &txn, &sender_info.wallet, &recipient_address).await?;
-
+    info!("--- COMPLETED TRANSACTION ---");
     // After operation
+    info!("--- BALANCES AFTER TRANSACTION ---");
     get_sender_balance(&chain, &sender_info.address, &txn).await?;      // Get Sender balances and log them
-    get_recipient_balance(&chain, &recipient_address, &txn).await?;                   // Get Recipient balances and log them
+    get_recipient_balance(&chain, &recipient_address, &txn).await?;                     // Get Recipient balances and log them
 
     Ok(())
 }
