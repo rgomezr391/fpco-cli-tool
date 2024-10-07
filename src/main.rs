@@ -50,7 +50,6 @@ async fn main() {
         }
         Err(e) => println!("Error: {}", e),
     }
-
 }
 
 async fn parse_args() -> Result<Txn, anyhow::Error> {
