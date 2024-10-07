@@ -56,7 +56,6 @@ async fn main() {
 async fn parse_args() -> Result<Txn, anyhow::Error> {
     let args = Args::parse();
 
-
     // (?<amount>\d+(?:\.*\d+)*)(?<denom>[a-zA-Z]*) -> This one admits float
     let re = Regex::new(r"(?<amount>\d+)(?<denom>[a-zA-Z]*)").unwrap();
 
