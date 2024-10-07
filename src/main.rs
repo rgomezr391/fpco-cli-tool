@@ -12,16 +12,16 @@ use anyhow::{anyhow, Result};
 extern crate log;
 use log::info;
 
+use env_logger::{Builder, Env};
+use std::io::Write;
+
 use std::str::FromStr;
 use std::result::Result::Ok;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Name of the person to greet
     operation: String,
-
-    /// Number of times to greet
     address: String,
 }
 
@@ -41,8 +41,8 @@ struct SenderInfo {
 async fn main() {
 
     // Enable Logging
-    std::env::set_var("RUST_LOG", "info");
-    env_logger::init();
+    std::env::set_var("MY_LOG_LEVEL", "info");
+    init_logger();
 
     match parse_args().await {
         Ok(txn) => { 
@@ -50,6 +50,25 @@ async fn main() {
         }
         Err(e) => println!("Error: {}", e),
     }
+}
+
+fn init_logger() {
+    let env = Env::default()
+        .filter("MY_LOG_LEVEL")
+        .write_style("MY_LOG_STYLE");
+
+    Builder::from_env(env)
+        .format(|buf, record| {
+            let warn_style = buf.default_level_style(log::Level::Info);
+            let timestamp = buf.timestamp();
+
+            writeln!(
+                buf,
+                "{timestamp}: {warn_style}{}{warn_style:#}",
+                record.args()
+            )
+        })
+        .init();
 }
 
 async fn parse_args() -> Result<Txn, anyhow::Error> {
@@ -66,6 +85,7 @@ async fn parse_args() -> Result<Txn, anyhow::Error> {
         return Err(anyhow!("Unexpected amount fo matches"));
     }
 
+    info!("--- INPUT VARIABLES ---");
     info!("Recipient Address: {}", args.address);
     info!("Amount: {}", &caps["amount"]);
     info!("Denom: {}", &caps["denom"]);
